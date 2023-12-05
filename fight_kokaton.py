@@ -146,14 +146,39 @@ class Beam:
         screen.blit(self.img, self.rct)
 
 
+class Explosion:
+    def __init__(self, center: tuple[int, int]):
+        self.images = [
+            pg.image.load("ex03/fig/explosion.gif"),
+            pg.transform.flip(pg.image.load("ex03/fig/explosion.gif"), True, False),
+            pg.transform.flip(pg.image.load("ex03/fig/explosion.gif"), False, True),
+            pg.transform.flip(pg.image.load("ex03/fig/explosion.gif"), True, True),
+        ]
+        self.image_index = 0
+        self.image = self.images[self.image_index]
+        self.rect = self.image.get_rect(center=center)
+        self.life = 30  # 爆発時間
+
+    def update(self):
+        self.life -= 1
+        if self.life > 0:
+            # lifeが0より大きい間、交互に画像を切り替えて爆発を演出
+            self.image_index = (self.image_index + 1) % len(self.images)
+            self.image = self.images[self.image_index]
+        
+    def draw(self, screen: pg.Surface):
+        if self.life > 0:  # lifeが0より大きい間のみ描画
+            screen.blit(self.image, self.rect)
+
 def main():
     pg.display.set_caption("たたかえ！こうかとん")
     screen = pg.display.set_mode((WIDTH, HEIGHT))    
-    bg_img = pg.image.load(f"{MAIN_DIR}/fig/pg_bg.jpg")
+    bg_img = pg.image.load("ex03/fig/pg_bg.jpg")
     bird = Bird(3, (900, 400))
-    # BombインスタンスがNUM個並んだリスト
-    bombs = [Bomb() for _ in range(NUM_OF_BOMBS)]  
+    bombs = [Bomb() for _ in range(NUM_OF_BOMBS)]
     beam = None
+    #score = Score()
+    explosions = []
 
     clock = pg.time.Clock()
     tmr = 0
@@ -161,8 +186,9 @@ def main():
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return
-            if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:  # スペースキーが押されたら
-                beam = Beam(bird)  # ビームインスタンスの生成
+            if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
+                beam = Beam(bird)
+
         
         screen.blit(bg_img, [0, 0])
         
@@ -173,13 +199,21 @@ def main():
                 pg.display.update()
                 time.sleep(1)
                 return
-
+            
+        
         for i, bomb in enumerate(bombs):
-            if beam is not None and beam.rct.colliderect(bomb.rct):
-                beam = None
-                bombs[i] = None
-                bird.change_img(6, screen)
-        # Noneでない爆弾だけのリストを作る
+            if beam is not None:  
+                if beam.rct.colliderect(bomb.rct):
+                    explosion = Explosion(bomb.rct.center)
+                    explosions.append(explosion)
+                    explosion.update()
+                    explosion.draw(screen)
+                    beam = None
+                    bombs[i] = None
+                    bird.change_img(6, screen)
+                    #score.value += 1
+                    pg.display.update()
+                    time.sleep(1) 
         bombs = [bomb for bomb in bombs if bomb is not None]
 
         key_lst = pg.key.get_pressed()
@@ -187,10 +221,15 @@ def main():
         for bomb in bombs:
             bomb.update(screen)
         if beam is not None:
-            beam.update(screen)
+            beam.update(screen)#順番大切
+        #score.update(screen) 
+        for explosion in explosions:
+            explosion.update()
+            explosion.draw(screen)
         pg.display.update()
         tmr += 1
         clock.tick(50)
+
 
 
 if __name__ == "__main__":
